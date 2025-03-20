@@ -4,11 +4,11 @@ server:
     context-path: /api
 spring:
   application:
-    name: yu-picture-backend
+    name: cloud-picture-backend
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/yu_picture
+    url: jdbc:mysql://localhost:3306/cloud_picture
     username: root
     password: 580226
 
