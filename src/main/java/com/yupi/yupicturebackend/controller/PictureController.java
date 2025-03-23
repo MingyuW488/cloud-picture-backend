@@ -126,7 +126,7 @@ public class PictureController {
      * @return
      */
     @GetMapping("/get/vo")
-    public  BaseResponse<PictureVO> getPictureById(long id,HttpServletRequest request){
+    public  BaseResponse<PictureVO> getPictureVOById(long id,HttpServletRequest request){
         ThrowUtils.throwIf(id <= 0,ErrorCode.PARAMS_ERROR);
         //查询数据库
         Picture picture = pictureService.getById(id);
@@ -177,6 +177,7 @@ public class PictureController {
     /**
      * 编辑图片（用户使用
      */
+    @PostMapping("/edit")
     public BaseResponse<Boolean> editPicture(@RequestBody PictureEditRequest pictureEditRequest,HttpServletRequest request){
         if (pictureEditRequest == null || pictureEditRequest.getId() <= 0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
