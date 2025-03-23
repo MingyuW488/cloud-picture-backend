@@ -14,6 +14,7 @@ import com.yupi.yupicturebackend.model.entity.User;
 import com.yupi.yupicturebackend.model.vo.LoginUserVO;
 import com.yupi.yupicturebackend.model.vo.UserVO;
 import com.yupi.yupicturebackend.service.UserService;
+import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.http.ResponseEntity;
@@ -181,6 +182,7 @@ public class UserController {
      */
     @PostMapping("/list/page/vo")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation("管理员分页查询用户")
     public BaseResponse<Page<UserVO>> listUserVOByPage(@RequestBody UserQueryRequest userQueryRequest){
         isParamEmpty(userQueryRequest);
 
@@ -188,8 +190,7 @@ public class UserController {
         long current = userQueryRequest.getCurrent();
         long pageSize = userQueryRequest.getPageSize();
 
-        Page<User> userPage = userService.page(new Page<>(current,pageSize),
-                userService.getQueryWrapper(userQueryRequest));
+        Page<User> userPage = userService.page(new Page<>(current,pageSize), userService.getQueryWrapper(userQueryRequest));
 
         //转换成UserVO
         List<UserVO> userVOList = userService.getUserVOList(userPage.getRecords());

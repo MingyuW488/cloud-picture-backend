@@ -3,7 +3,11 @@ package com.yupi.yupicturebackend.model.vo;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Date;
 
+/**
+ * 管理员查看用户数据vo
+ */
 @Data
 public class UserVO implements Serializable {
 
@@ -37,7 +41,15 @@ public class UserVO implements Serializable {
      */
     private String userRole;
 
+    /**
+     * 创建时间
+     */
+    private Date createTime;
 
+    /**
+     * 更新时间
+     */
+    private Date updateTime;
 
     private static final long serialVersionUID = 1L;
 }

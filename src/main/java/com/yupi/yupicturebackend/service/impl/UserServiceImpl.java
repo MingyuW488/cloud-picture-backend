@@ -70,6 +70,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
         user.setUserName("无名");
+        //默认为用户
         user.setUserRole(UserRoleEnum.USER.getValue());
         boolean saveResult = this.save(user);
 
@@ -91,9 +92,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         //校验
         ThrowUtils.throwIf(StrUtil.hasBlank(userAccount,userPassword),ErrorCode.PARAMS_ERROR,"账号或密码为空");
 
-        ThrowUtils.throwIf(userAccount.length() < 4,ErrorCode.PARAMS_ERROR,"账号错误");
+        ThrowUtils.throwIf(userAccount.length() < 4,ErrorCode.PARAMS_ERROR,"账号或密码错误");
 
-        ThrowUtils.throwIf(userPassword.length() < 6,ErrorCode.PARAMS_ERROR,"密码错误");
+        ThrowUtils.throwIf(userPassword.length() < 6,ErrorCode.PARAMS_ERROR,"账号或密码错误");
 
         //对用户传递的密码进行加密
         String encryptPassword = getEncryptPassword(userPassword);
@@ -250,6 +251,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     }
 
+    /**
+     * 是否为管理员
+     * @param user
+     * @return
+     */
+    @Override
+    public boolean isAdmin(User user) {
+        return user != null && UserRoleEnum.ADMIN.getValue().equals(user.getUserRole());
+    }
 
 }
 
