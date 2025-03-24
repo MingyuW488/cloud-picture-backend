@@ -10,12 +10,10 @@ import com.yupi.yupicturebackend.constant.UserConstant;
 import com.yupi.yupicturebackend.exception.BusinessException;
 import com.yupi.yupicturebackend.exception.ErrorCode;
 import com.yupi.yupicturebackend.exception.ThrowUtils;
-import com.yupi.yupicturebackend.model.dto.picture.PictureEditRequest;
-import com.yupi.yupicturebackend.model.dto.picture.PictureQueryRequest;
-import com.yupi.yupicturebackend.model.dto.picture.PictureUpdateRequest;
-import com.yupi.yupicturebackend.model.dto.picture.PictureUploadRequest;
+import com.yupi.yupicturebackend.model.dto.picture.*;
 import com.yupi.yupicturebackend.model.entity.Picture;
 import com.yupi.yupicturebackend.model.entity.User;
+import com.yupi.yupicturebackend.model.enums.PictureReviewStatusEnum;
 import com.yupi.yupicturebackend.model.vo.PictureTagCategory;
 import com.yupi.yupicturebackend.model.vo.PictureVO;
 import com.yupi.yupicturebackend.service.PictureService;
@@ -50,7 +48,7 @@ public class PictureController {
      * @return
      */
     @PostMapping("/upload")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+//    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<PictureVO> uploadPicture(@RequestPart("file") MultipartFile multipartFile,
                                                  PictureUploadRequest
                                                  pictureUploadRequest, HttpServletRequest request){
@@ -72,7 +70,7 @@ public class PictureController {
         }
 
         User loginUser = userService.getLoginUser(request);
-        long id = deleteRequest.getId();
+        Long id = deleteRequest.getId();
         //判断是否有图片
         Picture oldPicture = pictureService.getById(id);
         ThrowUtils.throwIf(oldPicture == null,ErrorCode.NOT_FOUND_ERROR);
@@ -111,6 +109,9 @@ public class PictureController {
         Picture oldPicture = pictureService.getById(id);
         ThrowUtils.throwIf(oldPicture == null,ErrorCode.NOT_FOUND_ERROR);
 
+        User loginUser = userService.getLoginUser(request);
+        //补充审核参数
+        pictureService.fillReviewParams(picture,loginUser);
         //操作数据库
         boolean res = pictureService.updateById(picture);
         ThrowUtils.throwIf(!res,ErrorCode.OPERATION_ERROR);
@@ -159,12 +160,15 @@ public class PictureController {
      * @param request
      * @return 图片封装类j
      */
+    @PostMapping("/list/page/vo")
     public BaseResponse<Page<PictureVO>> listPictureVOByPage(@RequestBody PictureQueryRequest pictureQueryRequest, HttpServletRequest request){
         long current = pictureQueryRequest.getCurrent();
-        long size = pictureQueryRequest.getPicSize();
+        long size = pictureQueryRequest.getPageSize();
 
         ThrowUtils.throwIf(size > 20,ErrorCode.PARAMS_ERROR);
 
+        //普通用户默认只能看到审核通过的数据
+        pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
         //查询数据库
         Page<Picture> picturePage = pictureService.page(new Page<>(current,size),
                 pictureService.getQueryWrapper(pictureQueryRequest));
@@ -200,7 +204,8 @@ public class PictureController {
         if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)){
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
-
+        //补充审核参数
+        pictureService.fillReviewParams(picture,loginUser);
         //操作数据库
         boolean res = pictureService.updateById(picture);
         ThrowUtils.throwIf(!res,ErrorCode.OPERATION_ERROR);
@@ -215,11 +220,29 @@ public class PictureController {
     @GetMapping("/tag_category")
     public BaseResponse<PictureTagCategory> listPictureTagCategory() {
         PictureTagCategory pictureTagCategory = new PictureTagCategory();
-        List<String> tagList = Arrays.asList("热门", "搞笑", "生活", "高清", "艺术", "校园", "背景", "简历", "创意");
-        List<String> categoryList = Arrays.asList("模板", "电商", "表情包", "素材", "海报");
+        List<String> tagList = Arrays.asList("热门", "搞笑", "生活", "高清", "艺术", "校园", "背景", "纯真小子", "创意");
+        List<String> categoryList = Arrays.asList("模板", "电商", "表情包", "素材", "海报","网络神人");
         pictureTagCategory.setTagList(tagList);
         pictureTagCategory.setCategoryList(categoryList);
         return ResultUtils.success(pictureTagCategory);
     }
 
+    /**
+     *  图片审核
+     * @param pictureReviewRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/review")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> doPictureReview(@RequestBody PictureReviewRequest pictureReviewRequest,HttpServletRequest request){
+        ThrowUtils.throwIf(pictureReviewRequest == null ,ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+
+        pictureService.doPictureReview(pictureReviewRequest,loginUser);
+
+        return ResultUtils.success(true);
+
+
+    }
 }

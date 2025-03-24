@@ -75,6 +75,22 @@ public class Picture implements Serializable {
     private Long userId;
 
     /**
+     * 审核状态 0 待审核 1已通过 2 拒绝
+     */
+    private Integer reviewStatus;
+
+    /**
+     * 审核信息
+     */
+    private String reviewMessage;
+
+    /**
+     * 审核人ID
+     */
+    private Long reviewerId;
+
+
+    /**
      * 创建时间
      */
     private Date createTime;
@@ -88,6 +104,11 @@ public class Picture implements Serializable {
      * 更新时间
      */
     private Date updateTime;
+
+    /**
+     * 审核时间
+     */
+    private Date reviewTime;
 
     /**
      * 是否删除
