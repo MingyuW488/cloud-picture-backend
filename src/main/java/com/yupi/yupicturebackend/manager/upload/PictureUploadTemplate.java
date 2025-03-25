@@ -1,0 +1,112 @@
+package com.yupi.yupicturebackend.manager.upload;
+
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.NumberUtil;
+import cn.hutool.core.util.RandomUtil;
+import com.qcloud.cos.model.PutObjectResult;
+import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
+import com.yupi.yupicturebackend.config.CosClientConfig;
+import com.yupi.yupicturebackend.exception.BusinessException;
+import com.yupi.yupicturebackend.exception.ErrorCode;
+import com.yupi.yupicturebackend.manager.CosManager;
+import com.yupi.yupicturebackend.model.dto.file.UploadPictureResult;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import javax.annotation.Resource;
+import java.io.File;
+import java.io.IOException;
+import java.util.Date;
+
+/**
+ *  图片上传模板
+ */
+@Slf4j
+@Component
+public abstract class PictureUploadTemplate {
+    @Resource
+    private CosManager cosManager;
+    @Resource
+    private CosClientConfig cosClientConfig;
+
+    /**
+     * 上传图片
+     */
+    public UploadPictureResult uploadPicture(Object inputSource, String uploadPathPrefix) {
+        //校验图片
+        validPicture(inputSource);
+        //图片上传地址
+        String uuid = RandomUtil.randomString(16);
+        String originalFilename = getOriginalFilename(inputSource);
+        //拼接文件路径
+        String uploadFileName = String.format("%s_%s.%s", DateUtil.formatDate(new Date())
+                , uuid, FileUtil.getSuffix(originalFilename));
+        String uploadPath = String.format("/%s/%s", uploadPathPrefix, uploadFileName);
+
+        //解析结果并返回
+        File file = null;
+        try {
+            //上传文件
+            file = File.createTempFile(uploadPath, null);
+            //处理文件来源
+            processFile(inputSource,file);
+            //上传COS对象存储
+            PutObjectResult putObjectResult = cosManager.putPictureObject(uploadPath, file);
+            //获取图片信息对象
+            ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();
+            return buildResult(imageInfo,uploadPath,originalFilename,file);
+        } catch (IOException e) {
+            log.error("图片上传到存储对象失败" , e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"上传失败");
+        } finally {
+            //清理临时文件
+            deleteTemplateFIle(file);
+        }
+    }
+
+    protected abstract void processFile(Object inputSource, File file) throws IOException;
+
+
+    protected abstract String getOriginalFilename(Object inputSource);
+
+    protected abstract void validPicture(Object inputSource);
+
+    /**
+     * 封装返回结果
+     * @param imageInfo
+     * @param uploadPath
+     * @param originFileName
+     * @param file
+     * @return
+     */
+    private UploadPictureResult buildResult(ImageInfo imageInfo,String uploadPath,String originFileName,File file){
+
+        // 封装返回结果
+        UploadPictureResult uploadPictureResult = new UploadPictureResult();
+        uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + uploadPath);
+        uploadPictureResult.setPicName(FileUtil.mainName(originFileName));
+        uploadPictureResult.setPicSize(FileUtil.size(file));
+        uploadPictureResult.setPicWidth(imageInfo.getWidth());
+        uploadPictureResult.setPicHeight(imageInfo.getHeight());
+        uploadPictureResult.setPicScale(NumberUtil.round(imageInfo.getWidth() * 1.0 / imageInfo.getHeight(),2).doubleValue());
+        uploadPictureResult.setPicFormat(imageInfo.getFormat());
+
+        return uploadPictureResult;
+    }
+    /**
+     * 删除临时文件
+     */
+    private static void deleteTemplateFIle (File file){
+
+        if (file != null) {
+            //删除临时文件
+            boolean delete = file.delete();
+            if (!delete) {
+                log.error("file delete error,filepath" + file.getAbsolutePath());
+            }
+        }
+    }
+
+
+
+}

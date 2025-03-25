@@ -11,6 +11,7 @@ import com.yupi.yupicturebackend.exception.BusinessException;
 import com.yupi.yupicturebackend.exception.ErrorCode;
 import com.yupi.yupicturebackend.exception.ThrowUtils;
 import com.yupi.yupicturebackend.model.dto.picture.*;
+import com.yupi.yupicturebackend.model.dto.user.UserLoginRequest;
 import com.yupi.yupicturebackend.model.entity.Picture;
 import com.yupi.yupicturebackend.model.entity.User;
 import com.yupi.yupicturebackend.model.enums.PictureReviewStatusEnum;
@@ -57,6 +58,21 @@ public class PictureController {
         return ResultUtils.success(pictureVO);
     }
 
+    /**
+     *  根据url上传文件，
+     * @param multipartFile
+     * @param pictureUploadRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/upload/url")
+//    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<PictureVO> uploadPictureByUrl(@RequestBody PictureUploadRequest pictureUploadRequest, HttpServletRequest request){
+        User loginUser = userService.getLoginUser(request);
+        String url = pictureUploadRequest.getUrl();
+        PictureVO pictureVO = pictureService.uploadPicture(url, pictureUploadRequest, loginUser);
+        return ResultUtils.success(pictureVO);
+    }
     /**
      *  删除图片
      * @param deleteRequest
