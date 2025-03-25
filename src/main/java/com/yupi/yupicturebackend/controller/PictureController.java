@@ -69,7 +69,7 @@ public class PictureController {
 //    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<PictureVO> uploadPictureByUrl(@RequestBody PictureUploadRequest pictureUploadRequest, HttpServletRequest request){
         User loginUser = userService.getLoginUser(request);
-        String url = pictureUploadRequest.getUrl();
+        String url = pictureUploadRequest.getFileUrl();
         PictureVO pictureVO = pictureService.uploadPicture(url, pictureUploadRequest, loginUser);
         return ResultUtils.success(pictureVO);
     }
@@ -258,7 +258,24 @@ public class PictureController {
         pictureService.doPictureReview(pictureReviewRequest,loginUser);
 
         return ResultUtils.success(true);
-
-
     }
+
+    /**
+     * 管理员批量抓取图片
+     * @param pictureUploadByBatchRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/upload/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Integer> uploadPictureByBatch(
+            @RequestBody PictureUploadByBatchRequest pictureUploadByBatchRequest,
+            HttpServletRequest request
+    ) {
+        ThrowUtils.throwIf(pictureUploadByBatchRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        int uploadCount = pictureService.uploadPictureByBatch(pictureUploadByBatchRequest, loginUser);
+        return ResultUtils.success(uploadCount);
+    }
+
 }
