@@ -17,14 +17,18 @@ import com.yupi.yupicturebackend.model.vo.LoginUserVO;
 import com.yupi.yupicturebackend.model.vo.UserVO;
 import com.yupi.yupicturebackend.service.UserService;
 import com.yupi.yupicturebackend.mapper.UserMapper;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,6 +37,8 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService{
+    @Resource
+    private UserMapper userMapper;
 
     /**
      * 用户注册
@@ -54,32 +60,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         ThrowUtils.throwIf(userPassword.length() < 6,ErrorCode.PARAMS_ERROR,"密码过短");
 
-        //检查用户名用户账号是否与未删除的数据重复
+        //检查用户名用户账号是否与数据重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount",userAccount);
-        queryWrapper.eq("isDelete",0);
-        //
-        User existUser = this.getById(queryWrapper);
+        Long count = this.baseMapper.selectCount(queryWrapper);
 
-        ThrowUtils.throwIf(  existUser != null,ErrorCode.PARAMS_ERROR,"账号重复");
+        ThrowUtils.throwIf(count > 0,ErrorCode.PARAMS_ERROR,"账号重复");
 
         //对密码进行加密
         String encryptPassword = getEncryptPassword(userPassword);
 
         //插入数据到数据库
-        User user = new User();
-        //如果是之间删除过的账号,重置密码并改动逻辑删除为0
-        if (userAccount == existUser.getUserAccount() && existUser.getIsDelete() == 1){
-            user.setIsDelete(0);
-            user.setUserPassword(encryptPassword);
-        }else {
-            user.setUserAccount(userAccount);
-            user.setUserPassword(encryptPassword);
-            user.setUserName("无名");
-            //默认为用户
-            user.setUserRole(UserRoleEnum.USER.getValue());
-        }
 
+        User user = new User();
+        user.setUserAccount(userAccount);
+        user.setUserPassword(encryptPassword);
+        user.setUserName("无名");
+        //默认为用户
+        user.setUserRole(UserRoleEnum.USER.getValue());
         boolean saveResult = this.save(user);
 
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR,"注册失败，数据库错误");

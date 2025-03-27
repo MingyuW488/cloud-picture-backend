@@ -7,7 +7,6 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.repository.AbstractRepository;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.yupicturebackend.constant.UserConstant;
 import com.yupi.yupicturebackend.exception.BusinessException;
@@ -32,7 +31,8 @@ import com.yupi.yupicturebackend.service.PictureService;
 import com.yupi.yupicturebackend.mapper.PictureMapper;
 import com.yupi.yupicturebackend.service.SpaceService;
 import com.yupi.yupicturebackend.service.UserService;
-import io.netty.util.internal.StringUtil;
+import com.yupi.yupicturebackend.utils.ColorSimilarUtils;
+import com.yupi.yupicturebackend.utils.ColorTransformUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -45,11 +45,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.awt.*;
 import java.io.IOException;
-import java.util.Date;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 
@@ -97,7 +96,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             if (space.getTotalSize() > space.getMaxSize()){
                 throw new BusinessException(ErrorCode.OPERATION_ERROR,"空间大小不足");
             }
-
         }
         //判断空间是否存在
         if (pictureUploadRequest != null){
@@ -143,6 +141,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         //构造入库的图片信息
         Picture picture = new Picture();
         BeanUtils.copyProperties(uploadPictureResult,picture);
+        picture.setPicColor(ColorTransformUtils.getStandardColor(picture.getPicColor()));
         picture.setSpaceId(spaceId);
 
         String picName = uploadPictureResult.getPicName();
@@ -168,11 +167,13 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             //有则修改，无则插入
             boolean result = this.saveOrUpdate(picture);
             ThrowUtils.throwIf(!result,ErrorCode.OPERATION_ERROR,"数据库操作失败");
-            boolean update = spaceService.lambdaUpdate()
-                    .eq(Space::getId, finalSpaceId)
-                    .setSql("totalSize = totalSize + " + picture.getPicSize())
-                    .setSql("totalCount = totalCount + 1").update();
-            ThrowUtils.throwIf(!update,ErrorCode.OPERATION_ERROR,"额度更新失败");
+            if (finalSpaceId != null){
+                boolean update = spaceService.lambdaUpdate()
+                        .eq(Space::getId, finalSpaceId)
+                        .setSql("totalSize = totalSize + " + picture.getPicSize())
+                        .setSql("totalCount = totalCount + 1").update();
+                ThrowUtils.throwIf(!update,ErrorCode.OPERATION_ERROR,"额度更新失败");
+            }
             return true;
         });
 
@@ -260,6 +261,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         String reviewMessage = pictureQueryRequest.getReviewMessage();
         Long spaceId = pictureQueryRequest.getSpaceId();
         boolean nullSpaceId = pictureQueryRequest.isNullSpaceId();
+        Date startEditTime = pictureQueryRequest.getStartEditTime();
+        Date endEditTime = pictureQueryRequest.getEndEditTime();
+
         // 从多字段中搜索
         if (StrUtil.isNotBlank(searchText)) {
             // 需要拼接查询条件
@@ -283,6 +287,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         queryWrapper.like(StrUtil.isNotBlank(reviewMessage), "reviewMessage", reviewMessage);
         queryWrapper.eq(ObjUtil.isNotEmpty(spaceId), "spaceId", spaceId);
         queryWrapper.isNull(nullSpaceId,"spaceId");
+        queryWrapper.ge(ObjUtil.isNotEmpty(startEditTime),"editTime",startEditTime);
+        queryWrapper.le(ObjUtil.isNotEmpty(endEditTime),"editTime",endEditTime);
 
 
         // JSON 数组查询
@@ -501,6 +507,54 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
 
         }
 
+    }
+
+    /**
+     * 根据颜色搜索图片
+     * @param spaceId
+     * @param picColor
+     * @param loginUser
+     * @return
+     */
+    @Override
+    public List<PictureVO> searchPictureByColor(Long spaceId, String picColor, User loginUser) {
+        //校验参数
+        ThrowUtils.throwIf(spaceId == null || StrUtil.isBlank(picColor) ,ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(loginUser == null ,ErrorCode.NO_AUTH_ERROR);
+        //校验空间权限
+        Space space = spaceService.getById(spaceId);
+        ThrowUtils.throwIf(space == null,ErrorCode.NOT_FOUND_ERROR,"空间不存在");
+        if (!space.getUserId().equals(loginUser.getId())){
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"没有空间访问权限");
+        }
+        //查询空间所有图片（必须有主色调
+        List<Picture> pictureList = lambdaQuery().eq(Picture::getSpaceId, spaceId)
+                .isNotNull(Picture::getPicColor)
+                .list();
+        //没有图片直接返回空列表
+        if (CollUtil.isEmpty(pictureList)){
+            return new ArrayList<>();
+        }
+        //将十六进制颜色转换为主色调
+        Color targetColor = Color.decode(picColor);
+
+        //计算相似度并排序
+        List<Picture> sortedPictureList = pictureList.stream()
+                .sorted(Comparator.comparingDouble(picture -> {
+                    //计算相似度
+                    String hexColor = picture.getPicColor();
+                    //没有主色调排序到最后
+                    if(StrUtil.isBlank(hexColor)){
+                        return Double.MAX_VALUE;
+                    }
+                    Color pictureColor = Color.decode(hexColor);
+                    return -ColorSimilarUtils.calculateSimilarity(targetColor, pictureColor);
+                }))
+                .limit(15)
+                .collect(Collectors.toList());
+
+        //返回结果
+        return sortedPictureList.stream().map(PictureVO::objToVo).collect(Collectors.toList());
     }
 }
 
