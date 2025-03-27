@@ -54,24 +54,32 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         ThrowUtils.throwIf(userPassword.length() < 6,ErrorCode.PARAMS_ERROR,"密码过短");
 
-        //检查用户名用户账号是否与数据重复
+        //检查用户名用户账号是否与未删除的数据重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount",userAccount);
-        Long count = this.baseMapper.selectCount(queryWrapper);
+        queryWrapper.eq("isDelete",0);
+        //
+        User existUser = this.getById(queryWrapper);
 
-        ThrowUtils.throwIf(count > 0,ErrorCode.PARAMS_ERROR,"账号重复");
+        ThrowUtils.throwIf(  existUser != null,ErrorCode.PARAMS_ERROR,"账号重复");
 
         //对密码进行加密
         String encryptPassword = getEncryptPassword(userPassword);
 
         //插入数据到数据库
-
         User user = new User();
-        user.setUserAccount(userAccount);
-        user.setUserPassword(encryptPassword);
-        user.setUserName("无名");
-        //默认为用户
-        user.setUserRole(UserRoleEnum.USER.getValue());
+        //如果是之间删除过的账号,重置密码并改动逻辑删除为0
+        if (userAccount == existUser.getUserAccount() && existUser.getIsDelete() == 1){
+            user.setIsDelete(0);
+            user.setUserPassword(encryptPassword);
+        }else {
+            user.setUserAccount(userAccount);
+            user.setUserPassword(encryptPassword);
+            user.setUserName("无名");
+            //默认为用户
+            user.setUserRole(UserRoleEnum.USER.getValue());
+        }
+
         boolean saveResult = this.save(user);
 
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR,"注册失败，数据库错误");
