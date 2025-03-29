@@ -5,7 +5,6 @@ import com.yupi.yupicturebackend.common.BaseResponse;
 import com.yupi.yupicturebackend.common.ResultUtils;
 import com.yupi.yupicturebackend.constant.UserConstant;
 import com.yupi.yupicturebackend.manager.CosManager;
-import jdk.internal.org.objectweb.asm.tree.FieldInsnNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

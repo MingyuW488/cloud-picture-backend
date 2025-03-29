@@ -1,11 +1,14 @@
 package com.yupi.yupicturebackend.manager.upload;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.qcloud.cos.model.PutObjectResult;
+import com.qcloud.cos.model.ciModel.persistence.CIObject;
 import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
+import com.qcloud.cos.model.ciModel.persistence.ProcessResults;
 import com.yupi.yupicturebackend.config.CosClientConfig;
 import com.yupi.yupicturebackend.exception.BusinessException;
 import com.yupi.yupicturebackend.exception.ErrorCode;
@@ -17,6 +20,7 @@ import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 
 /**
  *  图片上传模板
@@ -54,6 +58,16 @@ public abstract class PictureUploadTemplate {
             PutObjectResult putObjectResult = cosManager.putPictureObject(uploadPath, file);
             //获取图片信息对象
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();
+            //获取到图片处理结果
+            ProcessResults processResults = putObjectResult.getCiUploadResult().getProcessResults();
+            List<CIObject> objectList = processResults.getObjectList();
+            if (CollUtil.isNotEmpty(objectList)){
+                //获取压缩后的文件信息
+                CIObject compressedCiObject = objectList.get(0);
+                //封装压缩图片的返回结果
+                return buildResult(originalFilename,compressedCiObject);
+            }
+
             return buildResult(imageInfo,uploadPath,originalFilename,file);
         } catch (IOException e) {
             log.error("图片上传到存储对象失败" , e);
@@ -63,6 +77,31 @@ public abstract class PictureUploadTemplate {
             deleteTemplateFIle(file);
         }
     }
+
+    /**
+     *
+     * 封装返回结果
+     * @param originalFilename 原始文件名
+     * @param compressedCiObject 压缩后的对象
+     * @return
+     */
+    private UploadPictureResult buildResult(String originalFilename, CIObject compressedCiObject) {
+
+        // 封装返回结果
+        UploadPictureResult uploadPictureResult = new UploadPictureResult();
+        uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + compressedCiObject.getKey());
+        uploadPictureResult.setPicName(FileUtil.mainName(originalFilename));
+        uploadPictureResult.setPicSize(compressedCiObject.getSize().longValue());
+        uploadPictureResult.setPicWidth(compressedCiObject.getWidth());
+        uploadPictureResult.setPicHeight(compressedCiObject.getHeight());
+        uploadPictureResult.setPicScale(NumberUtil.round(compressedCiObject.getWidth() * 1.0 / compressedCiObject.getHeight(),2).doubleValue());
+        uploadPictureResult.setPicFormat(compressedCiObject.getFormat());
+
+        return uploadPictureResult;
+    }
+
+
+
 
     protected abstract void processFile(Object inputSource, File file) throws IOException;
 
