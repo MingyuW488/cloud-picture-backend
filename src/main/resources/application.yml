@@ -2,6 +2,9 @@ server:
   port: 8081
   servlet:
     context-path: /api
+    session:
+      cookie:
+        max-age: 864000
 spring:
   application:
     name: cloud-picture-backend
@@ -21,7 +24,10 @@ spring:
     host: localhost
     database: 3
     timeout: 5000
-
+##session配置
+  session:
+    store-type: redis
+    timeout: 864000
 mybatis-plus:
   configuration:
     map-underscore-tocamel-case: false

@@ -25,8 +25,10 @@ public class ThrowUtils {
      * @param message
      */
     public static void throwIf(boolean condition,ErrorCode errorCode,String message){
-        throwIf(condition,new BusinessException(errorCode,message));
 
-        log.info(message);
+        if (condition){
+            log.info(message);
+            throw new BusinessException(errorCode,message);
+        }
     }
 }

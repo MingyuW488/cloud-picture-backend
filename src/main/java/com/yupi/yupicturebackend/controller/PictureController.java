@@ -113,6 +113,7 @@ public class PictureController {
         if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)){
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
+        pictureService.clearPictureFile(oldPicture);
 
         //操作数据库
         boolean res = pictureService.removeById(id);
