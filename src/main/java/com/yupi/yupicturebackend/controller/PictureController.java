@@ -15,11 +15,13 @@ import com.yupi.yupicturebackend.exception.ErrorCode;
 import com.yupi.yupicturebackend.exception.ThrowUtils;
 import com.yupi.yupicturebackend.model.dto.picture.*;
 import com.yupi.yupicturebackend.model.entity.Picture;
+import com.yupi.yupicturebackend.model.entity.Space;
 import com.yupi.yupicturebackend.model.entity.User;
 import com.yupi.yupicturebackend.model.enums.PictureReviewStatusEnum;
 import com.yupi.yupicturebackend.model.vo.PictureTagCategory;
 import com.yupi.yupicturebackend.model.vo.PictureVO;
 import com.yupi.yupicturebackend.service.PictureService;
+import com.yupi.yupicturebackend.service.SpaceService;
 import com.yupi.yupicturebackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.statement.select.Pivot;
@@ -27,6 +29,7 @@ import org.apache.catalina.webresources.ExtractingRoot;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -51,6 +54,10 @@ public class PictureController {
     private UserService userService;
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private SpaceService spaceService;
+    @Resource
+    private TransactionTemplate transactionTemplate;
 
     //caffeine本地缓存配置
     private final Cache<String, String> LOCAL_CACHE =
@@ -109,17 +116,27 @@ public class PictureController {
         //判断是否有图片
         Picture oldPicture = pictureService.getById(id);
         ThrowUtils.throwIf(oldPicture == null,ErrorCode.NOT_FOUND_ERROR);
+        transactionTemplate.execute(status -> {
+            //操作数据库
+            boolean res = pictureService.removeById(id);
+            ThrowUtils.throwIf(!res,ErrorCode.OPERATION_ERROR,"数据库操作失败");
+            boolean update = spaceService.lambdaUpdate()
+                    .eq(Space::getId,oldPicture.getSpaceId())
+                    .setSql("totalSize = totalSize -" + oldPicture.getPicSize())
+                    .setSql("totalCount = totalCount - 1")
+                    .update();
+            ThrowUtils.throwIf(!update,ErrorCode.OPERATION_ERROR,"额度更新失败");
+            return true;
+        });
+
+
         //本人或管理员才能删除
-        if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)){
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
+        pictureService.checkPictureAuth(loginUser,oldPicture);
         pictureService.clearPictureFile(oldPicture);
 
-        //操作数据库
-        boolean res = pictureService.removeById(id);
-        ThrowUtils.throwIf(!res,ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
     }
+
 
     /**
      * 更新图片（仅管理员
@@ -168,7 +185,10 @@ public class PictureController {
         //查询数据库
         Picture picture = pictureService.getById(id);
         ThrowUtils.throwIf(picture == null,ErrorCode.NOT_FOUND_ERROR);
-
+        if (picture.getSpaceId() != null){
+            User loginUser = userService.getLoginUser(request);
+            pictureService.checkPictureAuth(loginUser,picture);
+        }
         //获取封装类
         return ResultUtils.success(pictureService.getPictureVO(picture,request));
     }
@@ -203,8 +223,22 @@ public class PictureController {
 
         ThrowUtils.throwIf(size > 20,ErrorCode.PARAMS_ERROR);
 
-        //普通用户默认只能看到审核通过的数据
-        pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+        //空间权限校验
+        Long spaceId = pictureQueryRequest.getSpaceId();
+        if (spaceId == null){
+            //公开图库
+            //普通用户默认只能看到审核通过的数据
+            pictureQueryRequest.setNullSpaceId(true);
+            pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+        }else {
+            //个人空间
+            User loginUser = userService.getLoginUser(request);
+            Space space = spaceService.getById(spaceId);
+            ThrowUtils.throwIf(space == null,ErrorCode.NOT_FOUND_ERROR,"空间不存在");
+            if (!loginUser.getId().equals(space.getUserId())){
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"没有空间权限");
+            }
+        }
         //查询数据库
         Page<Picture> picturePage = pictureService.page(new Page<>(current,size),
                 pictureService.getQueryWrapper(pictureQueryRequest));
@@ -287,9 +321,7 @@ public class PictureController {
         Picture oldPicture = pictureService.getById(id);
         ThrowUtils.throwIf(oldPicture == null,ErrorCode.NOT_FOUND_ERROR);
         //本人或管理可以编辑
-        if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)){
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
+        pictureService.checkPictureAuth(loginUser,oldPicture);
         //补充审核参数
         pictureService.fillReviewParams(picture,loginUser);
         //操作数据库
