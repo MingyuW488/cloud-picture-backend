@@ -49,7 +49,7 @@ public abstract class PictureUploadTemplate {
                 , uuid, FileUtil.getSuffix(originalFilename));
         String uploadPath = String.format("/%s/%s", uploadPathPrefix, uploadFileName);
 
-        uploadPath = ensureUploadPathHasSuffix(uploadPath, originalFilename); // ← 添加后缀保护
+        uploadPath = ensureUploadPathHasSuffix(uploadPath); // ← 添加后缀保护
         //解析结果并返回
         File file = null;
         try {
@@ -167,15 +167,19 @@ public abstract class PictureUploadTemplate {
     /**
      * 检测后缀是否为空
      * @param uploadPath
-     * @param originalFilename
      * @return
      */
-    private String ensureUploadPathHasSuffix(String uploadPath, String originalFilename) {
-        String suffix = FileUtil.getSuffix(originalFilename);
-        if (StrUtil.isNotBlank(suffix) && IMAGE_SUFFIXES.contains(suffix.toLowerCase())) {
-            return uploadPath;
+    private String ensureUploadPathHasSuffix(String uploadPath) {
+        if (uploadPath == null ) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 默认添加 jpg 后缀
-        return uploadPath + ".jpg";
+        uploadPath = uploadPath.trim();
+        // 检查是否以点结尾但没有后缀
+        if (uploadPath.endsWith(".") || !uploadPath.matches(".*\\.\\w+$")) {
+            return uploadPath + "jpg";
+        }
+        return uploadPath;
     }
+
+
 }
