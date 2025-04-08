@@ -5,6 +5,7 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
 import com.qcloud.cos.model.PutObjectResult;
 import com.qcloud.cos.model.ciModel.persistence.CIObject;
 import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
@@ -19,8 +20,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 /**
  *  图片上传模板
@@ -32,6 +32,8 @@ public abstract class PictureUploadTemplate {
     private CosManager cosManager;
     @Resource
     private CosClientConfig cosClientConfig;
+    //后缀常量
+    private static final Set<String> IMAGE_SUFFIXES = new HashSet<>(Arrays.asList("jpg", "jpeg", "png", "gif", "webp", "bmp"));
 
     /**
      * 上传图片
@@ -47,6 +49,7 @@ public abstract class PictureUploadTemplate {
                 , uuid, FileUtil.getSuffix(originalFilename));
         String uploadPath = String.format("/%s/%s", uploadPathPrefix, uploadFileName);
 
+        uploadPath = ensureUploadPathHasSuffix(uploadPath, originalFilename); // ← 添加后缀保护
         //解析结果并返回
         File file = null;
         try {
@@ -62,14 +65,16 @@ public abstract class PictureUploadTemplate {
             ProcessResults processResults = putObjectResult.getCiUploadResult().getProcessResults();
             List<CIObject> objectList = processResults.getObjectList();
             if (CollUtil.isNotEmpty(objectList)){
-                //获取压缩后的文件信息
+                //获取压缩后的webp文件信息
                 CIObject compressedCiObject = objectList.get(0);
+                //若没有缩略图则都是用webp文件
                 CIObject thumbnailCiObject = compressedCiObject;
+                //缩略图
                 if (objectList.size() > 1){
                     thumbnailCiObject = objectList.get(1);
                 }
                 //封装压缩图片的返回结果
-                return buildResult(originalFilename,compressedCiObject,thumbnailCiObject,imageInfo);
+                return buildResult(originalFilename,compressedCiObject,thumbnailCiObject,imageInfo,uploadPath);
             }
 
             return buildResult(imageInfo,uploadPath,originalFilename,file);
@@ -89,7 +94,7 @@ public abstract class PictureUploadTemplate {
      * @param compressedCiObject 压缩后的对象
      * @return
      */
-    private UploadPictureResult buildResult(String originalFilename, CIObject compressedCiObject,CIObject thumbnailCiObject,ImageInfo imageInfo) {
+    private UploadPictureResult buildResult(String originalFilename, CIObject compressedCiObject,CIObject thumbnailCiObject,ImageInfo imageInfo ,String uploadPath) {
 
         // 封装返回结果
         UploadPictureResult uploadPictureResult = new UploadPictureResult();
@@ -105,6 +110,9 @@ public abstract class PictureUploadTemplate {
 
         //缩略图地址
         uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiObject.getKey());
+
+        //封装原图地址
+        uploadPictureResult.setOriginUrl(cosClientConfig.getHost() + "/" + uploadPath);
 
         return uploadPictureResult;
     }
@@ -156,6 +164,18 @@ public abstract class PictureUploadTemplate {
         }
     }
 
-
-
+    /**
+     * 检测后缀是否为空
+     * @param uploadPath
+     * @param originalFilename
+     * @return
+     */
+    private String ensureUploadPathHasSuffix(String uploadPath, String originalFilename) {
+        String suffix = FileUtil.getSuffix(originalFilename);
+        if (StrUtil.isNotBlank(suffix) && IMAGE_SUFFIXES.contains(suffix.toLowerCase())) {
+            return uploadPath;
+        }
+        // 默认添加 jpg 后缀
+        return uploadPath + ".jpg";
+    }
 }

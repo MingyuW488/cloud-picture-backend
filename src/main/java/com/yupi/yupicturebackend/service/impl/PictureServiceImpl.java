@@ -81,6 +81,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         //判断是新增还是更新
         Long pictureId = null;
         Long spaceId = pictureUploadRequest.getSpaceId();
+        //判断空间是否存在
         if (spaceId != null){
             Space space = spaceService.getById(spaceId);
             ThrowUtils.throwIf(space == null,ErrorCode.NOT_FOUND_ERROR,"空间不存在");
@@ -97,7 +98,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
                 throw new BusinessException(ErrorCode.OPERATION_ERROR,"空间大小不足");
             }
         }
-        //判断空间是否存在
+        //获取图片ID,有则为更新，否则上传
         if (pictureUploadRequest != null){
             pictureId = pictureUploadRequest.getId();
         }
@@ -115,7 +116,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             if (spaceId == null){
                 if (oldPicture.getSpaceId() != null){
                     spaceId = oldPicture.getSpaceId();
-
                 }
             }else {
                 if(ObjUtil.notEqual(spaceId,oldPicture.getSpaceId())){
@@ -129,8 +129,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         //是否为公共图库
         if (spaceId == null) {
             uploadPathPrefix = String.format("public/%s",loginUser.getId());
+        }else{
+            uploadPathPrefix = String.format("space/%s",spaceId);
         }
-        uploadPathPrefix = String.format("space/%s",spaceId);
         //根据inputSource类型 ，调用对应的上传方式
         PictureUploadTemplate pictureUploadTemplate = filePictureUpload;
         //如果是String类型，则是url上传
