@@ -34,17 +34,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.swing.*;
 
 /**
-* @author 48827
-* @description 针对表【space(空间)】的数据库操作Service实现
-* @createDate 2025-03-30 20:42:55
-*/
+ * 空间Service
+ */
 @Service
 public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     implements SpaceService{
     @Resource
     private UserService userService;
-    @Resource
-    private SpaceMapper spaceMapper;
     @Resource
     private TransactionTemplate transactionTemplate;
 
@@ -232,6 +228,20 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                 space.setMaxCount(maxCount);
             }
 
+        }
+
+    }
+
+    /**
+     * 校验空间权限
+     * @param space
+     * @param loginUser
+     */
+    @Override
+    public void checkSpaceAuth(Space space, User loginUser) {
+        //仅本人或者管理员有权限
+        if (!space.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)){
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"没有权限");
         }
 
     }

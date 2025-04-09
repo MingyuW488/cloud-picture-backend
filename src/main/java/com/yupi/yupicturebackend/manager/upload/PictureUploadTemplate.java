@@ -89,7 +89,7 @@ public abstract class PictureUploadTemplate {
 
     /**
      *
-     * 封装返回结果
+     * 封装返回结果 COS对象存储返回 压缩图或者缩略图时
      * @param originalFilename 原始文件名
      * @param compressedCiObject 压缩后的对象
      * @return
@@ -128,7 +128,7 @@ public abstract class PictureUploadTemplate {
     protected abstract void validPicture(Object inputSource);
 
     /**
-     * 封装返回结果
+     * 封装返回结果 Cos未返回缩略图或者压缩图
      * @param imageInfo
      * @param uploadPath
      * @param originFileName
@@ -147,6 +147,7 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicScale(NumberUtil.round(imageInfo.getWidth() * 1.0 / imageInfo.getHeight(),2).doubleValue());
         uploadPictureResult.setPicFormat(imageInfo.getFormat());
         uploadPictureResult.setPicColor(imageInfo.getAve());
+        uploadPictureResult.setOriginUrl(cosClientConfig.getHost() + "/" + uploadPath);
 
         return uploadPictureResult;
     }
@@ -176,7 +177,7 @@ public abstract class PictureUploadTemplate {
         uploadPath = uploadPath.trim();
         // 检查是否以点结尾但没有后缀
         if (uploadPath.endsWith(".") || !uploadPath.matches(".*\\.\\w+$")) {
-            return uploadPath + "jpg";
+            return uploadPath + "png";
         }
         return uploadPath;
     }

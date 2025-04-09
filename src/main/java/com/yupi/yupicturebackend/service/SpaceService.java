@@ -13,11 +13,6 @@ import com.yupi.yupicturebackend.model.vo.SpaceVO;
 
 import javax.servlet.http.HttpServletRequest;
 
-/**
-* @author 48827
-* @description 针对表【space(空间)】的数据库操作Service
-* @createDate 2025-03-30 20:42:55
-*/
 public interface SpaceService extends IService<Space> {
     /**
      * 创建空间
@@ -55,6 +50,18 @@ public interface SpaceService extends IService<Space> {
      */
     void validSpace(Space space,boolean isAdd);
 
+    /**
+     * 根据空间等级填充空间信息
+     * @param space
+     */
     public void fillSpaceBySpaceLevel(Space space);
+
+
+    /**
+     * 校验空间权限
+     * @param space
+     * @param loginUser
+     */
+    void checkSpaceAuth(Space space,User loginUser);
 
 }
