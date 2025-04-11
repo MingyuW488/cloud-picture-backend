@@ -54,6 +54,7 @@ public class User implements Serializable {
     /**
      * 编辑时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date editTime;
 
     /**

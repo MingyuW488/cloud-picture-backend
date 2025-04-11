@@ -50,3 +50,7 @@ knife4j:
         api-rule: package
         api-rule-resources:
           - com.yupi.yupicturebackend.controller
+
+aliYunAi:
+  apiKey: sk-47bc789daa004b3da22a0cb4443c32cd
+

@@ -8,6 +8,9 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yupi.yupicturebackend.api.aliyunai.AliYunAiApi;
+import com.yupi.yupicturebackend.api.aliyunai.model.CreateOutPaintingTaskRequest;
+import com.yupi.yupicturebackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.yupi.yupicturebackend.constant.UserConstant;
 import com.yupi.yupicturebackend.exception.BusinessException;
 import com.yupi.yupicturebackend.exception.ErrorCode;
@@ -65,6 +68,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
     private SpaceService spaceService;
     @Resource
     private TransactionTemplate transactionTemplate;
+    @Resource
+    private AliYunAiApi aliYunAiApi;
 
     /**
      *  图片上传
@@ -493,17 +498,13 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             //公共空间，本人和管理员可以操作
             if (!picture.getUserId().equals(loginUserId) && !userService.isAdmin(loginUser)){
                 throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-
-            }else {
-                //个人空间,空间拥有者能操作
-                if (!picture.getUserId().equals(loginUserId)){
-                    throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-                }
-
             }
-
-
-
+        }
+        else {
+            //个人空间,空间拥有者能操作
+            if (!picture.getUserId().equals(loginUserId)){
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+            }
         }
 
     }
@@ -609,6 +610,30 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
     }
 
     /**
+     * AI扩图
+     * @param createPictureOutPaintingTaskRequest
+     * @param loginUser
+     */
+    @Override
+    public CreateOutPaintingTaskResponse createPictureOutPaintingTask(CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser) {
+        //获取图片
+        Long pictureId = createPictureOutPaintingTaskRequest.getPictureId();
+        Picture picture = this.getById(pictureId);
+        ThrowUtils.throwIf(picture == null,ErrorCode.NOT_FOUND_ERROR,"图片不存在");
+        //权限校验
+        checkPictureAuth(loginUser,picture);
+
+        //创建扩图任务
+        CreateOutPaintingTaskRequest createOutPaintingTaskRequest = new CreateOutPaintingTaskRequest();
+        CreateOutPaintingTaskRequest.Input input = new CreateOutPaintingTaskRequest.Input();
+        input.setImageUrl(picture.getOriginUrl());
+        createOutPaintingTaskRequest.setInput(input);
+        createOutPaintingTaskRequest.setParameters(createPictureOutPaintingTaskRequest.getParameters());
+        //创建任务
+        return aliYunAiApi.createOutPaintingTask(createOutPaintingTaskRequest);
+    }
+
+    /**
      * 根据命名规则填充图片名称
      * @param pictureList
      * @param nameRule
@@ -629,8 +654,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             log.error("名称解析错误");
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"名称解析错误");
         }
-
-
     }
 }
 

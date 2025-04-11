@@ -21,6 +21,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 
 @RestController
@@ -172,6 +174,26 @@ public class UserController {
 
         User user = new User();
         BeanUtils.copyProperties(userUpdateRequest,user);
+        boolean res = userService.updateById(user);
+        ThrowUtils.throwIf(!res,ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+    /**
+     * 用户编辑（用户使用
+     */
+    @PostMapping("/edit")
+    public BaseResponse<Boolean> editUser(@RequestBody UserEditRequest userEditRequest,HttpServletRequest request){
+        if(userEditRequest == null || userEditRequest.getId() == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        //检测是否为用户本人
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null || !loginUser.getId().equals(userEditRequest.getId())){
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"没有权限");
+        }
+        User user = new User();
+        BeanUtils.copyProperties(userEditRequest,user);
+        user.setEditTime(new Date());
         boolean res = userService.updateById(user);
         ThrowUtils.throwIf(!res,ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
