@@ -621,7 +621,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
         Picture picture = this.getById(pictureId);
         ThrowUtils.throwIf(picture == null,ErrorCode.NOT_FOUND_ERROR,"图片不存在");
         //权限校验
-        checkPictureAuth(loginUser,picture);
+        //改为注解校验
 
         //创建扩图任务
         CreateOutPaintingTaskRequest createOutPaintingTaskRequest = new CreateOutPaintingTaskRequest();

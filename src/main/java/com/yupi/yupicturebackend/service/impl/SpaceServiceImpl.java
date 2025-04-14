@@ -1,5 +1,4 @@
 package com.yupi.yupicturebackend.service.impl;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -13,6 +12,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.yupicturebackend.exception.BusinessException;
 import com.yupi.yupicturebackend.exception.ErrorCode;
 import com.yupi.yupicturebackend.exception.ThrowUtils;
+//import com.yupi.yupicturebackend.manager.sharding.DynamicShardingManager;
 import com.yupi.yupicturebackend.model.dto.space.SpaceAddRequest;
 import com.yupi.yupicturebackend.model.dto.space.SpaceQueryRequest;
 import com.yupi.yupicturebackend.model.entity.Space;
@@ -29,13 +29,10 @@ import com.yupi.yupicturebackend.service.SpaceUserService;
 import com.yupi.yupicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.TransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.Resource;
-import javax.jws.soap.SOAPBinding;
 import javax.servlet.http.HttpServletRequest;
-import javax.swing.*;
 
 /**
  * 空间Service
@@ -49,6 +46,10 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     private TransactionTemplate transactionTemplate;
     @Resource
     private SpaceUserService spaceUserService;
+
+//    @Resource 方便部署先取消分表
+//    @Lazy
+//    private DynamicShardingManager dynamicShardingManager;
 
 
     /**
@@ -111,9 +112,12 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                     res = spaceUserService.save(spaceUser);
                     ThrowUtils.throwIf(!res, ErrorCode.OPERATION_ERROR, "创建团队成员记录失败");
                 }
+                //仅对团队空间生效,创建分表
+//                dynamicShardingManager.createSpacePictureTable(space);
                 // 返回新写入的数据 id
                 return space.getId();
             });
+
             return newSpaceId;
         }
     }

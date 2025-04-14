@@ -15,10 +15,14 @@ import com.yupi.yupicturebackend.api.imagesearch.model.SoImageSearchResult;
 import com.yupi.yupicturebackend.common.BaseResponse;
 import com.yupi.yupicturebackend.common.DeleteRequest;
 import com.yupi.yupicturebackend.common.ResultUtils;
+import com.yupi.yupicturebackend.constant.SpaceUserPermissionConstant;
 import com.yupi.yupicturebackend.constant.UserConstant;
 import com.yupi.yupicturebackend.exception.BusinessException;
 import com.yupi.yupicturebackend.exception.ErrorCode;
 import com.yupi.yupicturebackend.exception.ThrowUtils;
+import com.yupi.yupicturebackend.manager.auth.SpaceUserAuthManager;
+import com.yupi.yupicturebackend.manager.auth.StpKit;
+import com.yupi.yupicturebackend.manager.auth.annotation.SaSpaceCheckPermission;
 import com.yupi.yupicturebackend.model.dto.picture.*;
 import com.yupi.yupicturebackend.model.dto.user.UserLoginRequest;
 import com.yupi.yupicturebackend.model.entity.Picture;
@@ -50,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @RestController
@@ -68,6 +73,8 @@ public class PictureController {
     private TransactionTemplate transactionTemplate;
     @Resource
     private AliYunAiApi aliYunAiApi;
+    @Resource
+    private SpaceUserAuthManager spaceUserAuthManager;
 
     //caffeine本地缓存配置
     private final Cache<String, String> LOCAL_CACHE =
@@ -86,7 +93,8 @@ public class PictureController {
      * @return
      */
     @PostMapping("/upload")
-//    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_UPLOAD)
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<PictureVO> uploadPicture(@RequestPart("file") MultipartFile multipartFile,
                                                  PictureUploadRequest
                                                  pictureUploadRequest, HttpServletRequest request){
@@ -102,7 +110,8 @@ public class PictureController {
      * @return
      */
     @PostMapping("/upload/url")
-//    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_UPLOAD)
     public BaseResponse<PictureVO> uploadPictureByUrl(@RequestBody PictureUploadRequest pictureUploadRequest, HttpServletRequest request){
         User loginUser = userService.getLoginUser(request);
         String url = pictureUploadRequest.getFileUrl();
@@ -116,6 +125,7 @@ public class PictureController {
      * @return
      */
     @PostMapping("/delete")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_DELETE)
     public BaseResponse<Boolean> deletePicture(@RequestBody DeleteRequest deleteRequest,HttpServletRequest request){
         if (deleteRequest == null || deleteRequest.getId() <= 0 ){
             throw new BusinessException(ErrorCode.OPERATION_ERROR);
@@ -141,7 +151,6 @@ public class PictureController {
 
 
         //本人或管理员才能删除
-        pictureService.checkPictureAuth(loginUser,oldPicture);
         pictureService.clearPictureFile(oldPicture);
 
         return ResultUtils.success(true);
@@ -153,8 +162,8 @@ public class PictureController {
      * @param request
      * @return
      */
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @PostMapping("/update")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> updatePicture(@RequestBody PictureUpdateRequest pictureUpdateRequest,HttpServletRequest request){
         if (pictureUpdateRequest == null || pictureUpdateRequest.getId() <= 0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -190,17 +199,26 @@ public class PictureController {
      * @return
      */
     @GetMapping("/get/vo")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_VIEW)
     public  BaseResponse<PictureVO> getPictureVOById(long id,HttpServletRequest request){
         ThrowUtils.throwIf(id <= 0,ErrorCode.PARAMS_ERROR);
         //查询数据库
         Picture picture = pictureService.getById(id);
         ThrowUtils.throwIf(picture == null,ErrorCode.NOT_FOUND_ERROR);
-        if (picture.getSpaceId() != null){
-            User loginUser = userService.getLoginUser(request);
-            pictureService.checkPictureAuth(loginUser,picture);
+        //空间权限校验
+        Long spaceId = picture.getSpaceId();
+        Space space = null;
+        if (spaceId != null){
+            boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
+            ThrowUtils.throwIf(hasPermission,ErrorCode.NO_AUTH_ERROR);
+             space = spaceService.getById(spaceId);
         }
         //获取封装类
-        return ResultUtils.success(pictureService.getPictureVO(picture,request));
+        User loginUser = userService.getLoginUser(request);
+        List<String> permissionList = spaceUserAuthManager.getPermissionList(space, loginUser);
+        PictureVO pictureVO = pictureService.getPictureVO(picture, request);
+        pictureVO.setPermissionList(permissionList);
+        return ResultUtils.success(pictureVO);
     }
 
     /**
@@ -241,6 +259,9 @@ public class PictureController {
             pictureQueryRequest.setNullSpaceId(true);
             pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
         }else {
+            //权限校验
+            boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
+            ThrowUtils.throwIf(hasPermission,ErrorCode.NO_AUTH_ERROR);
             //个人空间
             User loginUser = userService.getLoginUser(request);
             Space space = spaceService.getById(spaceId);
@@ -312,6 +333,7 @@ public class PictureController {
      * 编辑图片（用户使用
      */
     @PostMapping("/edit")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_EDIT)
     public BaseResponse<Boolean> editPicture(@RequestBody PictureEditRequest pictureEditRequest,HttpServletRequest request){
         if (pictureEditRequest == null || pictureEditRequest.getId() <= 0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -331,7 +353,8 @@ public class PictureController {
         Picture oldPicture = pictureService.getById(id);
         ThrowUtils.throwIf(oldPicture == null,ErrorCode.NOT_FOUND_ERROR);
         //本人或管理可以编辑
-        pictureService.checkPictureAuth(loginUser,oldPicture);
+//        pictureService.checkPictureAuth(loginUser,oldPicture);
+//        改为注解
         //补充审核参数
         pictureService.fillReviewParams(picture,loginUser);
         //操作数据库
@@ -419,6 +442,7 @@ public class PictureController {
      * 根据颜色搜索
      */
     @PostMapping("/search/color")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_VIEW)
     public BaseResponse<List<PictureVO>> searchPictureByColor(@RequestBody SearchPictureByColorRequest searchPictureByColorRequest,HttpServletRequest request){
         ThrowUtils.throwIf(searchPictureByColorRequest == null,ErrorCode.PARAMS_ERROR);
 
@@ -439,6 +463,7 @@ public class PictureController {
      * @return
      */
     @PostMapping("/edit/batch")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_EDIT)
     public BaseResponse<Boolean> editPictureByBatch(@RequestBody PictureEditByBatchRequest pictureEditByBatchRequest,HttpServletRequest request){
         ThrowUtils.throwIf(pictureEditByBatchRequest == null,ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
@@ -451,6 +476,7 @@ public class PictureController {
      * @return
      */
     @PostMapping("/ai/out_painting/create_task")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_EDIT)
     public BaseResponse<CreateOutPaintingTaskResponse> createPictureOutPaintingTask(@RequestBody CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, HttpServletRequest request){
         ThrowUtils.throwIf(createPictureOutPaintingTaskRequest == null || createPictureOutPaintingTaskRequest.getPictureId() == null,ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);

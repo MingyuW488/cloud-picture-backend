@@ -38,7 +38,7 @@ public class GetOutPaintingTaskResponse {
          * <ul>
          *     <li>PENDING：排队中</li>
          *     <li>RUNNING：处理中</li>
-         *     <li>SUSPENDED：挂起</li>
+         *     <li>SUSPENDED：挂起</lis>
          *     <li>SUCCEEDED：执行成功</li>
          *     <li>FAILED：执行失败</li>
          *     <li>UNKNOWN：任务不存在或状态未知</li>
