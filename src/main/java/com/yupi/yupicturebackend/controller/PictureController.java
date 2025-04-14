@@ -140,12 +140,22 @@ public class PictureController {
             //操作数据库
             boolean res = pictureService.removeById(id);
             ThrowUtils.throwIf(!res,ErrorCode.OPERATION_ERROR,"数据库操作失败");
-            boolean update = spaceService.lambdaUpdate()
-                    .eq(Space::getId,oldPicture.getSpaceId())
-                    .setSql("totalSize = totalSize -" + oldPicture.getPicSize())
-                    .setSql("totalCount = totalCount - 1")
-                    .update();
-            ThrowUtils.throwIf(!update,ErrorCode.OPERATION_ERROR,"额度更新失败");
+            if(oldPicture.getSpaceId() == null){
+                boolean update = spaceService.lambdaUpdate()
+                        .setSql("totalSize = totalSize +" + oldPicture.getPicSize())
+                        .setSql("totalCount = totalCount - 1")
+                        .update();
+                ThrowUtils.throwIf(!update,ErrorCode.OPERATION_ERROR,"额度更新失败");
+            }else{
+                boolean update = spaceService.lambdaUpdate()
+                        .eq(Space::getId,oldPicture.getSpaceId())
+                        .setSql("totalSize = totalSize +" + oldPicture.getPicSize())
+                        .setSql("totalCount = totalCount - 1")
+                        .update();
+                ThrowUtils.throwIf(!update,ErrorCode.OPERATION_ERROR,"额度更新失败");
+
+            }
+
             return true;
         });
 
@@ -210,7 +220,7 @@ public class PictureController {
         Space space = null;
         if (spaceId != null){
             boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
-            ThrowUtils.throwIf(hasPermission,ErrorCode.NO_AUTH_ERROR);
+            ThrowUtils.throwIf(!hasPermission,ErrorCode.NO_AUTH_ERROR);
              space = spaceService.getById(spaceId);
         }
         //获取封装类
@@ -261,7 +271,7 @@ public class PictureController {
         }else {
             //权限校验
             boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
-            ThrowUtils.throwIf(hasPermission,ErrorCode.NO_AUTH_ERROR);
+            ThrowUtils.throwIf(!hasPermission,ErrorCode.NO_AUTH_ERROR);
             //个人空间
             User loginUser = userService.getLoginUser(request);
             Space space = spaceService.getById(spaceId);
