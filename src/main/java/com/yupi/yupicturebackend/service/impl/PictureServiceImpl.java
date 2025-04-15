@@ -11,7 +11,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.yupicturebackend.api.aliyunai.AliYunAiApi;
 import com.yupi.yupicturebackend.api.aliyunai.model.CreateOutPaintingTaskRequest;
 import com.yupi.yupicturebackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
-import com.yupi.yupicturebackend.constant.UserConstant;
 import com.yupi.yupicturebackend.exception.BusinessException;
 import com.yupi.yupicturebackend.exception.ErrorCode;
 import com.yupi.yupicturebackend.exception.ThrowUtils;
@@ -89,9 +88,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             Space space = spaceService.getById(spaceId);
             ThrowUtils.throwIf(space == null,ErrorCode.NOT_FOUND_ERROR,"空间不存在");
             //校验是否有空间的权限，仅空间本人才能上传
-            if (!loginUser.getId().equals(space.getUserId())){
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"没有空间权限");
-            }
+//            if (!loginUser.getId().equals(space.getUserId())){
+//                throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"没有空间权限");
+//            }
             //校验额度
             if (space.getTotalCount() > space.getMaxCount()){
                 throw new BusinessException(ErrorCode.OPERATION_ERROR,"空间条数不足");
@@ -110,10 +109,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture> impl
             Picture oldPicture = this.getById(pictureId);
             ThrowUtils.throwIf(oldPicture ==  null,ErrorCode.NOT_FOUND_ERROR,"图片不存在");
             //仅本人和管理员可编辑
-            if (!oldPicture.getUserId().equals(loginUser.getId()) && !loginUser.getUserRole().equals(UserConstant.ADMIN_ROLE)){
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-
-            }
+//            if (!oldPicture.getUserId().equals(loginUser.getId()) && !loginUser.getUserRole().equals(UserConstant.ADMIN_ROLE)){
+//                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+//            }
             //校验空间是否一致
             //无spaceId ，用原有图片的spaceId
             if (spaceId == null){

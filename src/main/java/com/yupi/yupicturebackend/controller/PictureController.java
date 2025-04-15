@@ -273,12 +273,12 @@ public class PictureController {
             boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
             ThrowUtils.throwIf(!hasPermission,ErrorCode.NO_AUTH_ERROR);
             //个人空间
-            User loginUser = userService.getLoginUser(request);
+//            User loginUser = userService.getLoginUser(request);
             Space space = spaceService.getById(spaceId);
             ThrowUtils.throwIf(space == null,ErrorCode.NOT_FOUND_ERROR,"空间不存在");
-            if (!loginUser.getId().equals(space.getUserId())){
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"没有空间权限");
-            }
+//            if (!loginUser.getId().equals(space.getUserId())){
+//                throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"没有空间权限");
+//            }
         }
         //查询数据库
         Page<Picture> picturePage = pictureService.page(new Page<>(current,size),
@@ -299,7 +299,7 @@ public class PictureController {
         long current = pictureQueryRequest.getCurrent();
         long size = pictureQueryRequest.getPageSize();
 
-        ThrowUtils.throwIf(size > 20,ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(size > 30,ErrorCode.PARAMS_ERROR);
         //普通用户默认只能看到审核通过的数据
         pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
 
