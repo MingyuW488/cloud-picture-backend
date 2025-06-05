@@ -15,16 +15,21 @@ spring:
       max-file-size: 10MB
       max-request-size: 15MB
       enabled: true
-   #空间图片分表
+#   #空间图片分表
   shardingsphere:
     datasource:
       names: cloud_picture
       cloud_picture:
         type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
+#        本地数据库
         url: jdbc:mysql://localhost:3306/cloud_picture
         username: root
-        password: 580226
+
+#        服务器数据库
+#        url: jdbc:mysql:///cloud_picture
+#        username: c-picture-root
+        password: 123456
     rules:
       sharding:
         tables:
@@ -43,16 +48,22 @@ spring:
     props:
       sql-show: true
   datasource:
+#    服务器数据库
+    url: jdbc:mysql://101.42.235.95/cloud_picture
+    username: c-picture-root
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/cloud_picture
-    username: root
-    password: 580226
+    #本地数据
+#    url: jdbc:mysql://localhost:3306/cloud_picture
+#    username: root
+    password: 123456
   redis:
     port: 6379
+    #本地
     host: localhost
-    database: 3
+    database: 0
     timeout: 5000
-##session配置
+    password: 580226
+  ##session配置
   session:
     store-type: redis
     timeout: 864000
@@ -60,7 +71,7 @@ mybatis-plus:
   configuration:
     map-underscore-tocamel-case: false
     #仅在开发环境打印日志
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: ''
   global-config:
     enable-sql-runner: true
     db-config:
@@ -68,7 +79,12 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
+#接口文档
 knife4j:
+  basic:
+    enable: true
+    username: root
+#    password:
   enable: true
   openapi:
     title: 接口文档
@@ -80,6 +96,14 @@ knife4j:
         api-rule-resources:
           - com.yupi.yupicturebackend.controller
 
-aliYunAi:
-  apiKey: sk-47bc789daa004b3da22a0cb4443c32cd
-
+#阿里云配置
+#aliYunAi:
+#  apiKey:
+#腾讯云COs配置
+#cos:
+#  client:
+#    host:
+#    secretId:
+#    secretKey:
+#    region:
+#    bucket:

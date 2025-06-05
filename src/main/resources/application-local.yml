@@ -1,7 +1,7 @@
 cos:
   client:
-    host: https://wmy-cloud-picture-1350310091.cos.ap-beijing.myqcloud.com
-    secretId: AKIDa3NYXLwMcgZJqCKEwXyBE6lFXgeP8h5I
-    secretKey: 3tXihS0NXTCi7KLAoLsKdwAD5lFWhtyz
-    region: ap-beijing
-    bucket: wmy-cloud-picture-1350310091
+    host:
+    secretId:
+    secretKey:
+    region:
+    bucket:
